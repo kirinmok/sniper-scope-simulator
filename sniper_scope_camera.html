@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>夜視鏡狙擊鏡</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .start-button {
+            padding: 20px 40px;
+            background: linear-gradient(145deg, #1a4a1a, #0d2d0d);
+            color: #00ff41;
+            border: 3px solid #00ff41;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 
+                0 4px 15px rgba(0, 255, 65, 0.3),
+                inset 0 1px 0 rgba(0, 255, 65, 0.1);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+        }
+
+        .start-button:hover {
+            background: linear-gradient(145deg, #2a5a2a, #1d3d1d);
+            border-color: #00ff80;
+            transform: translateY(-2px);
+            box-shadow: 
+                0 6px 20px rgba(0, 255, 65, 0.5),
+                inset 0 1px 0 rgba(0, 255, 65, 0.2);
+            color: #00ff80;
+            text-shadow: 0 0 15px rgba(0, 255, 65, 0.8);
+        }
+
+        .scope-container {
+            position: relative;
+            width: 500px;
+            height: 500px;
+            display: none;
+        }
+
+        .scope-view {
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            overflow: hidden;
+            position: relative;
+            border: 8px solid #003300;
+            box-shadow: 
+                inset 0 0 50px rgba(0, 255, 65, 0.3),
+                0 0 100px rgba(0, 255, 65, 0.2),
+                0 0 200px rgba(0, 0, 0, 0.9);
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            /* 夜視鏡濾鏡效果 */
+            filter: 
+                contrast(1.5) 
+                brightness(1.2) 
+                saturate(0.3) 
+                hue-rotate(90deg) 
+                sepia(0.8);
+        }
+
+        .night-vision-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, 
+                rgba(0, 255, 65, 0.1) 0%, 
+                rgba(0, 255, 65, 0.2) 40%, 
+                rgba(0, 100, 25, 0.4) 80%, 
+                rgba(0, 50, 12, 0.8) 100%);
+            pointer-events: none;
+            z-index: 3;
+            mix-blend-mode: overlay;
+        }
+
+        .scan-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                repeating-linear-gradient(
+                    0deg,
+                    rgba(0, 255, 65, 0.1) 0px,
+                    rgba(0, 255, 65, 0.05) 1px,
+                    transparent 2px,
+                    transparent 4px
+                );
+            pointer-events: none;
+            z-index: 4;
+            animation: scanMove 2s linear infinite;
+        }
+
+        @keyframes scanMove {
+            0% { transform: translateY(0px); }
+            100% { transform: translateY(4px); }
+        }
+
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .crosshair::before,
+        .crosshair::after {
+            content: '';
+            position: absolute;
+            background: #00ff41;
+            z-index: 10;
+            box-shadow: 0 0 8px rgba(0, 255, 65, 0.8);
+        }
+
+        .crosshair::before {
+            width: 2px;
+            height: 60px;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .crosshair::after {
+            width: 60px;
+            height: 2px;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .scope-marks {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 6;
+        }
+
+        .mark {
+            position: absolute;
+            background: #00ff41;
+            box-shadow: 0 0 4px rgba(0, 255, 65, 0.6);
+        }
+
+        .mark-1 { width: 25px; height: 2px; top: 50%; left: 10px; }
+        .mark-2 { width: 25px; height: 2px; top: 50%; right: 10px; }
+        .mark-3 { width: 2px; height: 25px; top: 10px; left: 50%; transform: translateX(-50%); }
+        .mark-4 { width: 2px; height: 25px; bottom: 10px; left: 50%; transform: translateX(-50%); }
+
+        /* 距離刻度 */
+        .range-marks {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 7;
+        }
+
+        .range-circle {
+            position: absolute;
+            border: 1px solid rgba(0, 255, 65, 0.4);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .range-circle-1 { width: 100px; height: 100px; }
+        .range-circle-2 { width: 200px; height: 200px; }
+        .range-circle-3 { width: 300px; height: 300px; }
+
+        .outer-ring {
+            position: absolute;
+            top: -20px;
+            left: -20px;
+            width: 540px;
+            height: 540px;
+            border: 3px solid #003300;
+            border-radius: 50%;
+            pointer-events: none;
+            box-shadow: 
+                0 0 20px rgba(0, 255, 65, 0.3),
+                inset 0 0 20px rgba(0, 255, 65, 0.1);
+        }
+
+        .info {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ff41;
+            font-size: 14px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(0, 255, 65, 0.8);
+            font-family: 'Courier New', monospace;
+        }
+
+        .error {
+            color: #ff4444;
+            text-align: center;
+            padding: 20px;
+            font-size: 16px;
+            max-width: 600px;
+            text-shadow: 0 0 10px rgba(255, 68, 68, 0.8);
+        }
+
+        .instructions {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ff41;
+            font-size: 12px;
+            max-width: 300px;
+            text-shadow: 0 0 8px rgba(0, 255, 65, 0.6);
+            font-family: 'Courier New', monospace;
+        }
+
+        .watermark {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            color: rgba(0, 255, 65, 0.4);
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 5px rgba(0, 255, 65, 0.3);
+            pointer-events: none;
+            z-index: 15;
+            transform: rotate(-15deg);
+            user-select: none;
+        }
+
+        .watermark-center {
+            position: absolute;
+            top: 70%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            color: rgba(0, 255, 65, 0.15);
+            font-size: 16px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 8px rgba(0, 255, 65, 0.2);
+            pointer-events: none;
+            z-index: 8;
+            user-select: none;
+            letter-spacing: 2px;
+        }
+
+        .scope-info {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            color: #00ff41;
+            font-size: 10px;
+            font-family: 'Courier New', monospace;
+            pointer-events: none;
+            z-index: 15;
+            user-select: none;
+            text-shadow: 0 0 5px rgba(0, 255, 65, 0.8);
+            line-height: 1.4;
+        }
+
+        .loading {
+            color: #00ff41;
+        }
+
+        .error-details {
+            background: rgba(0, 20, 0, 0.9);
+            border: 1px solid #00ff41;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+        }
+
+        .error-details h3 {
+            color: #ff4444;
+            margin-top: 0;
+            text-shadow: 0 0 10px rgba(255, 68, 68, 0.8);
+        }
+
+        .error-details ol {
+            text-align: left;
+            color: #00cc33;
+        }
+
+        .reload-btn {
+            padding: 12px 24px;
+            background: linear-gradient(145deg, #1a4a1a, #0d2d0d);
+            color: #00ff41;
+            border: 2px solid #00ff41;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 8px rgba(0, 255, 65, 0.6);
+        }
+
+        .reload-btn:hover {
+            background: linear-gradient(145deg, #2a5a2a, #1d3d1d);
+            border-color: #00ff80;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.5);
+        }
+
+        /* 夜視鏡特效 */
+        .night-vision-noise {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.1;
+            pointer-events: none;
+            z-index: 5;
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(0, 255, 65, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(0, 255, 65, 0.1) 0%, transparent 50%);
+            animation: noiseFlicker 0.1s infinite linear;
+        }
+
+        @keyframes noiseFlicker {
+            0% { opacity: 0.05; }
+            50% { opacity: 0.15; }
+            100% { opacity: 0.05; }
+        }
+
+        .mode-switch {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #00ff41;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 8px rgba(0, 255, 65, 0.6);
+        }
+
+        .mode-switch button {
+            background: rgba(0, 50, 12, 0.8);
+            color: #00ff41;
+            border: 1px solid #00ff41;
+            padding: 5px 10px;
+            margin: 0 2px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .mode-switch button:hover {
+            background: rgba(0, 100, 25, 0.8);
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.4);
+        }
+
+        .mode-switch button.active {
+            background: rgba(0, 255, 65, 0.2);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.6);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="instructions">
+            <p>🎯 夜視鏡狙擊模擬器</p>
+            <p>按 ESC 鍵退出 | 需要攝影機權限</p>
+            <p>支援夜視模式切換</p>
+        </div>
+        
+        <button class="start-button" id="startBtn">🎯 啟動夜視鏡 🎯</button>
+        
+        <div class="scope-container" id="scopeContainer">
+            <div class="mode-switch">
+                <div>模式選擇:</div>
+                <button id="normalMode">標準</button>
+                <button id="nightMode" class="active">夜視</button>
+                <button id="thermalMode">熱成像</button>
+            </div>
+            
+            <div class="outer-ring"></div>
+            <div class="scope-view">
+                <video id="video" autoplay playsinline></video>
+                
+                <!-- 夜視鏡特效層 -->
+                <div class="night-vision-overlay"></div>
+                <div class="scan-lines"></div>
+                <div class="night-vision-noise"></div>
+                
+                <!-- 十字瞄準器 -->
+                <div class="crosshair"></div>
+                
+                <!-- 距離標記 -->
+                <div class="range-marks">
+                    <div class="range-circle range-circle-1"></div>
+                    <div class="range-circle range-circle-2"></div>
+                    <div class="range-circle range-circle-3"></div>
+                </div>
+                
+                <!-- 刻度標記 -->
+                <div class="scope-marks">
+                    <div class="mark mark-1"></div>
+                    <div class="mark mark-2"></div>
+                    <div class="mark mark-3"></div>
+                    <div class="mark mark-4"></div>
+                </div>
+                
+                <!-- 浮水印區域 -->
+                <div class="watermark">NIGHT VISION v2.0</div>
+                <div class="watermark-center">TACTICAL MODE</div>
+                <div class="scope-info">
+                    <div>MODE: NIGHT VISION</div>
+                    <div>ZOOM: 4.5x</div>
+                    <div>RANGE: 500m</div>
+                    <div>STATUS: ACTIVE</div>
+                </div>
+            </div>
+            <div class="info">🔍 夜視目標已鎖定 🔍</div>
+        </div>
+
+        <div class="error" id="errorMsg" style="display: none;"></div>
+    </div>
+
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const scopeContainer = document.getElementById('scopeContainer');
+        const video = document.getElementById('video');
+        const errorMsg = document.getElementById('errorMsg');
+        const normalMode = document.getElementById('normalMode');
+        const nightMode = document.getElementById('nightMode');
+        const thermalMode = document.getElementById('thermalMode');
+
+        let currentMode = 'night';
+
+        // 模式切換功能
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            // 移除所有按鈕的 active 狀態
+            document.querySelectorAll('.mode-switch button').forEach(btn => 
+                btn.classList.remove('active'));
+            
+            // 設定濾鏡效果
+            switch(mode) {
+                case 'normal':
+                    video.style.filter = 'none';
+                    normalMode.classList.add('active');
+                    document.querySelector('.scope-info div').textContent = 'MODE: STANDARD';
+                    break;
+                case 'night':
+                    video.style.filter = 'contrast(1.5) brightness(1.2) saturate(0.3) hue-rotate(90deg) sepia(0.8)';
+                    nightMode.classList.add('active');
+                    document.querySelector('.scope-info div').textContent = 'MODE: NIGHT VISION';
+                    break;
+                case 'thermal':
+                    video.style.filter = 'contrast(2) brightness(0.8) saturate(0) hue-rotate(0deg) sepia(1) invert(1)';
+                    thermalMode.classList.add('active');
+                    document.querySelector('.scope-info div').textContent = 'MODE: THERMAL';
+                    break;
+            }
+        }
+
+        // 模式切換事件監聽
+        normalMode.addEventListener('click', () => switchMode('normal'));
+        nightMode.addEventListener('click', () => switchMode('night'));
+        thermalMode.addEventListener('click', () => switchMode('thermal'));
+
+        startBtn.addEventListener('click', async () => {
+            try {
+                // 檢查瀏覽器支援
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('此瀏覽器不支援攝影機功能');
+                }
+
+                // 隱藏開始按鈕和錯誤訊息
+                startBtn.style.display = 'none';
+                errorMsg.style.display = 'none';
+                
+                // 顯示載入訊息
+                errorMsg.textContent = '正在啟動夜視鏡系統...';
+                errorMsg.className = 'error loading';
+                errorMsg.style.display = 'block';
+                
+                // 請求攝影機權限
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                });
+
+                // 隱藏載入訊息
+                errorMsg.style.display = 'none';
+                errorMsg.className = 'error';
+
+                // 設置影片流
+                video.srcObject = stream;
+                
+                // 顯示狙擊鏡視圖
+                scopeContainer.style.display = 'block';
+                
+                // 設定初始模式
+                switchMode(currentMode);
+                
+                // 添加動畫效果
+                scopeContainer.style.opacity = '0';
+                scopeContainer.style.transform = 'scale(0.8)';
+                scopeContainer.style.transition = 'all 0.5s ease';
+                
+                setTimeout(() => {
+                    scopeContainer.style.opacity = '1';
+                    scopeContainer.style.transform = 'scale(1)';
+                }, 100);
+
+            } catch (error) {
+                console.error('無法訪問攝影機:', error);
+                startBtn.style.display = 'block';
+                errorMsg.style.display = 'block';
+                errorMsg.className = 'error';
+                
+                let errorMessage = '';
+                if (error.name === 'NotAllowedError') {
+                    errorMessage = `
+                        <div class="error-details">
+                            <h3>❌ 攝影機權限被拒絕</h3>
+                            <p><strong>解決方法：</strong></p>
+                            <ol>
+                                <li>點擊網址列左側的 🔒 或 📹 圖示</li>
+                                <li>將攝影機權限設為「<strong>允許</strong>」</li>
+                                <li>重新整理頁面</li>
+                            </ol>
+                            <p style="margin-top: 20px;">
+                                <button class="reload-btn" onclick="location.reload()">
+                                    🔄 重新載入頁面
+                                </button>
+                            </p>
+                        </div>
+                    `;
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage = `
+                        <div class="error-details">
+                            <h3>❌ 找不到攝影機設備</h3>
+                            <p>請確認您的設備有攝影機並正常連接</p>
+                        </div>
+                    `;
+                } else if (error.name === 'NotSupportedError') {
+                    errorMessage = `
+                        <div class="error-details">
+                            <h3>❌ 瀏覽器不支援</h3>
+                            <p>請使用 Chrome、Firefox、Edge 或 Safari 瀏覽器</p>
+                        </div>
+                    `;
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage = `
+                        <div class="error-details">
+                            <h3>❌ 攝影機被佔用</h3>
+                            <p>請關閉其他使用攝影機的應用程式（如 Zoom、Teams 等）</p>
+                        </div>
+                    `;
+                } else {
+                    errorMessage = `
+                        <div class="error-details">
+                            <h3>❌ 攝影機訪問失敗</h3>
+                            <p>錯誤詳情：${error.message}</p>
+                            <p>請檢查瀏覽器設定或嘗試重新整理頁面</p>
+                        </div>
+                    `;
+                }
+                
+                errorMsg.innerHTML = errorMessage;
+            }
+        });
+
+        // 頁面關閉時停止攝影機
+        window.addEventListener('beforeunload', () => {
+            if (video.srcObject) {
+                const tracks = video.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+            }
+        });
+
+        // ESC 鍵退出
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (video.srcObject) {
+                    const tracks = video.srcObject.getTracks();
+                    tracks.forEach(track => track.stop());
+                    video.srcObject = null;
+                }
+                scopeContainer.style.display = 'none';
+                startBtn.style.display = 'block';
+                errorMsg.style.display = 'none';
+            }
+        });
+
+        // 頁面載入完成時的初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('夜視鏡狙擊模擬器已載入');
+        });
+    </script>
+</body>
+</html>
